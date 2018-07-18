@@ -8,44 +8,67 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Explicit
-'Franck Binard, this module extracts the information
+'Franck Binard - 2018
+'Module to extract and read information
 'from a csv file for processing
 
+Private Type TCSVRecordSet
+    fieldDict As Object
+    csvRs As ADODB.recordset
+End Type
 
-Dim fieldDict As Object
-Dim csvRS As ADODB.recordset
+Dim this As TCSVRecordSet
 
 Property Get recordset() As ADODB.recordset
-    Set recordset = csvRS
+    Set recordset = this.csvRs
 End Property
 
 
-
-Public Sub init(ByRef csvAttachment As Outlook.Attachment, ByVal bolnumber As String)
-    Dim strTempCopyPath As String
+Private Sub debugPrintFieldValuePairs()
     Dim key As Variant
-    strTempCopyPath = copyFileToTempLocation(csvAttachment, bolnumber)
-    
-    Set fieldDict = CreateObject("Scripting.Dictionary")
-    Set csvRS = extractEmailAttachementInformation(strTempCopyPath, fieldDict)
-    
-    csvRS.MoveFirst
-    If csvRS.EOF Then
-        Err.Raise 100014, , "Invalide BOL information"
-    End If
-    
-    If debug_on Then
-    With csvRS
+    With this.csvRs
         .MoveFirst
         While Not .EOF
-            For Each key In fieldDict.keys
-                Debug.Print .fields(key)
+            For Each key In this.fieldDict.keys
+                Debug.Print key
+                Debug.Print this.fieldDict.fields(key)
             Next key
             .MoveNext
         Wend
         .MoveFirst
     End With
-    End If
+End Sub
+
+
+Private Function copyFile( _
+        objAtt As Outlook.Attachment, _
+        ByVal fileNameWithPath As String) _
+    As String
+    
+    'copies the attachment to location specified and
+    'returns the full path and name of the file
+    objAtt.SaveAsFile fileNameWithPath
+    copyFile = fileNameWithPath
+    'logNewEntry (copyFileToTempLocation)
+End Function
+
+
+Public Sub init( _
+    ByRef csvAttachment As Outlook.Attachment, _
+    ByVal copyNameWithPath As String)
+    
+    Dim copyFilePath As String: copyFilePath = copyFile(csvAttachment, copyNameWithPath)
+    
+    With this
+        Set .fieldDict = CreateObject("Scripting.Dictionary")
+        Set .csvRs = extractEmailAttachementInformation(copyFilePath, .fieldDict)
+        .csvRs.MoveFirst
+        If .csvRs.EOF Then
+            Err.Raise 100014, , "Invalide BOL information"
+        End If
+    End With
+    Call debugPrintFieldValuePairs
+  
 End Sub
 
 
@@ -77,9 +100,14 @@ Private Sub readCSVHeaderFile(ByVal directory As String, ByVal fileName As Strin
     Next fieldCtr
 End Sub
 
-Private Function readCSVInformation(ByVal directory As String, ByVal fileName As String, fieldDict As Object) As ADODB.recordset
-    'read the information contained in an attached csv files and returns an ADODB recordset
-    'with the corresponding information
+Private Function readCSVInformation( _
+    ByVal directory As String, _
+    ByVal fileName As String, _
+    fieldDict As Object) As ADODB.recordset
+    
+    'reads information in an attached csv file and
+    'returns an ADODB recordset with corresponding information
+    
     Dim rs As ADODB.recordset
     Dim connectionString As String
     Dim strSql As String
