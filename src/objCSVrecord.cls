@@ -15,6 +15,7 @@ Option Explicit
 Private Type TCSVRecordSet
     fieldDict As Object
     csvRs As ADODB.recordset
+    filePath As String
 End Type
 
 Dim this As TCSVRecordSet
@@ -57,30 +58,28 @@ Public Sub init( _
     ByRef csvAttachment As Outlook.Attachment, _
     ByVal copyNameWithPath As String)
     
-    Dim copyFilePath As String: copyFilePath = copyFile(csvAttachment, copyNameWithPath)
-    
     With this
+        .filePath = copyFile(csvAttachment, copyNameWithPath)
         Set .fieldDict = CreateObject("Scripting.Dictionary")
-        Set .csvRs = extractEmailAttachementInformation(copyFilePath, .fieldDict)
+        Call extractEmailAttachementInformation
         .csvRs.MoveFirst
         If .csvRs.EOF Then
             Err.Raise 100014, , "Invalide BOL information"
         End If
     End With
-    Call debugPrintFieldValuePairs
-  
 End Sub
 
 
-Private Function extractEmailAttachementInformation(ByVal filePath As String, fieldDict As Object) As ADODB.recordset
+Private Function extractEmailAttachementInformation() As ADODB.recordset
   
     Dim directory As String
     Dim fileName As String
    
-    directory = Left(filePath, InStrRev(filePath, "\"))
-    fileName = Right(filePath, Len(filePath) - InStrRev(filePath, "\"))
-   
-    Set extractEmailAttachementInformation = readCSVInformation(directory, fileName, fieldDict)
+    With this
+        directory = Left(.filePath, InStrRev(.filePath, "\"))
+        fileName = Right(.filePath, Len(.filePath) - InStrRev(.filePath, "\"))
+        Set .csvRs = readCSVInformation(directory, fileName, .fieldDict)
+    End With
 End Function
 
 Private Sub readCSVHeaderFile(ByVal directory As String, ByVal fileName As String, ByRef headerDict As Object)
@@ -125,9 +124,9 @@ Private Function readCSVInformation( _
     Call readCSVHeaderFile(directory, fileName, fieldDict)
     
     With fieldDict
-        'For Each fieldnum In fieldDict.keys
-            'Debug.Print fieldnum & " - " & .Item(fieldnum)
-        'Next fieldnum
+        For Each fieldnum In fieldDict.keys
+            Debug.Print fieldnum & " - " & .Item(fieldnum)
+        Next fieldnum
     End With
     
     '3. read the rest of the information using recordset
